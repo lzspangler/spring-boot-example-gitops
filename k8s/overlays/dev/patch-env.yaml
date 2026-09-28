@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-hello-app
+spec:
+  template:
+    spec:
+      containers:
+      - name: spring-hello-app
+        env:
+        - name: ENV
+          value: "DEV"

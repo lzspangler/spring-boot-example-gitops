@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-hello-app
+  labels:
+    app: spring-hello-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-hello-app
+  template:
+    metadata:
+      labels:
+        app: spring-hello-app
+    spec:
+      containers:
+      - name: spring-hello-app
+        image: spring-hello-app:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ENV
+          value: "world"
