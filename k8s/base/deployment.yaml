@@ -1,24 +1,81 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-hello-app
+  name: spring-boot-example-application
   labels:
-    app: spring-hello-app
+    app.kubernetes.io/name: spring-boot-example-application
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: lightwell-demo
 spec:
+  # Deliberately 1. The app runs H2 in-memory with ddl-auto=create-drop, so
+  # every replica would hold its own divergent copy of the data. Scaling this
+  # out needs a real datasource first.
   replicas: 1
   selector:
     matchLabels:
-      app: spring-hello-app
+      app.kubernetes.io/name: spring-boot-example-application
   template:
     metadata:
       labels:
-        app: spring-hello-app
+        app.kubernetes.io/name: spring-boot-example-application
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: lightwell-demo
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-      - name: spring-hello-app
-        image: spring-hello-app:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: ENV
-          value: "world"
+        - name: app
+          # Built by the demo pipeline; replace <domain> or point at your own build.
+          image: quay.io/<domain>/tssc/spring-boot-example-application:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # The image's ENTRYPOINT is a bare `java -jar`, so JAVA_OPTS is never
+            # read. JAVA_TOOL_OPTIONS is picked up by the JVM itself. The default
+            # MaxRAMPercentage of 25% would cap the heap at 256Mi of the 1Gi limit.
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=75.0"
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30          # up to 150s to boot before liveness takes over
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # Tomcat needs a writable java.io.tmpdir; everything else is read-only.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,21 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: spring-boot-example-application
+  labels:
+    app.kubernetes.io/name: spring-boot-example-application
+    app.kubernetes.io/part-of: lightwell-demo
+spec:
+  # host omitted on purpose: OpenShift generates
+  # spring-boot-example-application-<namespace>.<cluster apps domain>,
+  # which keeps this file portable across clusters. Set it explicitly only if
+  # you need a fixed hostname.
+  to:
+    kind: Service
+    name: spring-boot-example-application
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
